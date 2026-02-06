@@ -58,6 +58,46 @@ function copyLink() {
   })
 }
 
+// Texte de partage
+const shareText = computed(() => {
+  if (!valentineName.value) return ''
+  return `${valentineName.value}, j'ai quelque chose à te demander... Ouvre ce lien !`
+})
+
+// URLs de partage par plateforme
+const shareUrls = computed(() => {
+  if (!generatedLink.value) return {}
+  const text = encodeURIComponent(shareText.value)
+  const url = encodeURIComponent(generatedLink.value)
+  const full = encodeURIComponent(`${shareText.value} ${generatedLink.value}`)
+  return {
+    whatsapp: `https://wa.me/?text=${full}`,
+    sms: `sms:?&body=${full}`,
+    messenger: `fb-messenger://share/?link=${url}`,
+    x: `https://x.com/intent/tweet?text=${text}&url=${url}`,
+    snapchat: `https://www.snapchat.com/scan?attachmentUrl=${url}`,
+  }
+})
+
+// Web Share API natif (fonctionne sur mobile)
+const canNativeShare = ref(false)
+if (typeof navigator !== 'undefined' && navigator.share) {
+  canNativeShare.value = true
+}
+
+async function nativeShare() {
+  if (!generatedLink.value) return
+  try {
+    await navigator.share({
+      title: 'Love Request',
+      text: shareText.value,
+      url: generatedLink.value,
+    })
+  } catch {
+    // L'utilisateur a annulé, rien à faire
+  }
+}
+
 function reset() {
   senderName.value = ''
   valentineName.value = ''
@@ -213,25 +253,82 @@ function reset() {
         </div>
         <h2>Ta Love Request est prête !</h2>
         <p class="result-desc">
-          Copie ce lien et envoie-le à <strong>{{ valentineName }}</strong>
+          Envoie-la à <strong>{{ valentineName }}</strong> !
         </p>
 
-        <div class="link-box">
-          <code class="link-text">{{ generatedLink }}</code>
-          <button class="btn btn-secondary copy-btn" @click="copyLink">
-            <span v-if="!copied">
-              <SvgIcon name="clipboard" :size="16" color="var(--rose-700)" /> Copier
-            </span>
-            <span v-else class="copied-text">
-              <SvgIcon name="check" :size="16" color="#059669" /> Copié !
-            </span>
+        <!-- Bouton partage natif (prioritaire sur mobile) -->
+        <button
+          v-if="canNativeShare"
+          class="btn btn-primary share-native-btn animate-fade-in-up delay-1"
+          @click="nativeShare"
+        >
+          <SvgIcon name="share" :size="20" color="white" />
+          Partager
+        </button>
+
+        <!-- Grille de boutons de partage rapide -->
+        <div class="share-grid animate-fade-in-up delay-2">
+          <a
+            :href="shareUrls.whatsapp"
+            target="_blank"
+            rel="noopener"
+            class="share-btn share-whatsapp"
+          >
+            <SvgIcon name="whatsapp" :size="22" color="white" />
+            <span>WhatsApp</span>
+          </a>
+
+          <a
+            :href="shareUrls.sms"
+            class="share-btn share-sms"
+          >
+            <SvgIcon name="sms" :size="22" color="white" />
+            <span>Messages</span>
+          </a>
+
+          <a
+            :href="shareUrls.messenger"
+            target="_blank"
+            rel="noopener"
+            class="share-btn share-messenger"
+          >
+            <SvgIcon name="messenger" :size="22" color="white" />
+            <span>Messenger</span>
+          </a>
+
+          <a
+            :href="shareUrls.x"
+            target="_blank"
+            rel="noopener"
+            class="share-btn share-x"
+          >
+            <SvgIcon name="x" :size="20" color="white" />
+            <span>X</span>
+          </a>
+
+          <a
+            :href="shareUrls.snapchat"
+            target="_blank"
+            rel="noopener"
+            class="share-btn share-snap"
+          >
+            <SvgIcon name="snapchat" :size="22" color="white" />
+            <span>Snap</span>
+          </a>
+
+          <button
+            class="share-btn share-copy"
+            @click="copyLink"
+          >
+            <SvgIcon name="clipboard" :size="20" :color="copied ? '#059669' : 'white'" />
+            <span>{{ copied ? 'Copié !' : 'Copier' }}</span>
           </button>
         </div>
 
-        <p class="tip">
-          <SvgIcon name="send" :size="16" color="var(--rose-500)" />
-          Envoie-le par message, WhatsApp, Instagram, e-mail... à toi de jouer !
-        </p>
+        <!-- Lien en clair (repliable) -->
+        <div class="link-box animate-fade-in delay-3">
+          <code class="link-text">{{ generatedLink }}</code>
+        </div>
 
         <div class="divider">
           <span><SvgIcon name="heart-outline" :size="16" color="var(--rose-400)" /></span>
@@ -247,8 +344,9 @@ function reset() {
         <p>
           Fait avec
           <SvgIcon name="heart" :size="14" color="var(--rose-500)" />
-          pour la Saint-Valentin 2025
+          par Codeur X pour la Saint-Valentin
         </p>
+        <p class="footer-copyright">Tous Droits Réservés - 2026</p>
       </footer>
     </div>
   </main>
@@ -449,47 +547,80 @@ form {
   margin-bottom: var(--space-lg);
 }
 
-.link-box {
-  display: flex;
-  gap: var(--space-sm);
-  align-items: stretch;
-  background: var(--rose-50);
-  border: 2px solid var(--rose-200);
-  border-radius: 14px;
-  padding: var(--space-sm);
+/* Bouton partage natif */
+.share-native-btn {
+  width: 100%;
+  font-size: 1.15rem;
+  padding: 0.9em 2em;
+  margin-bottom: var(--space-md);
+  animation: pulse-glow 3s ease-in-out infinite;
+}
+
+/* Grille de partage rapide */
+.share-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.6rem;
   margin-bottom: var(--space-lg);
+  width: 100%;
+}
+
+.share-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.75em 0.5em;
+  border-radius: 14px;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  font-family: var(--font-accent);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: white;
+  transition: all 0.3s var(--ease-out-expo);
+  min-height: 64px;
+}
+
+.share-btn:hover {
+  transform: translateY(-2px) scale(1.04);
+  filter: brightness(1.1);
+}
+
+.share-btn:active {
+  transform: scale(0.96);
+}
+
+.share-whatsapp { background: #25D366; }
+.share-sms { background: linear-gradient(135deg, #34C759, #30B350); }
+.share-messenger { background: linear-gradient(135deg, #00B2FF, #006AFF); }
+.share-x { background: #000000; }
+.share-snap { background: #FFFC00; color: #000; }
+.share-snap span { color: #000; }
+.share-copy {
+  background: var(--rose-600);
+}
+
+.link-box {
+  width: 100%;
+  background: var(--rose-50);
+  border: 1px solid var(--rose-200);
+  border-radius: 12px;
+  padding: var(--space-sm);
+  margin-bottom: var(--space-md);
 }
 
 .link-text {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  padding: 0.5em 0.8em;
-  font-size: 0.85rem;
-  color: var(--rose-700);
+  display: block;
+  padding: 0.4em 0.6em;
+  font-size: 0.75rem;
+  color: var(--rose-600);
   word-break: break-all;
   font-family: 'SF Mono', 'Fira Code', monospace;
-  background: white;
-  border-radius: 10px;
-}
-
-.copy-btn {
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.copied-text {
-  color: #059669;
-}
-
-.tip {
-  font-size: 0.92rem;
-  color: var(--rose-500);
-  font-style: italic;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.4em;
+  text-align: center;
+  line-height: 1.5;
 }
 
 /* Footer */
@@ -505,6 +636,12 @@ form {
   align-items: center;
   justify-content: center;
   gap: 0.3em;
+}
+
+.footer-copyright {
+  font-size: 0.75rem !important;
+  margin-top: 0.25em;
+  opacity: 0.7;
 }
 
 @media (max-width: 640px) {
@@ -524,21 +661,24 @@ form {
     padding: 0.9em 1.5em;
   }
 
-  .link-box {
-    flex-direction: column;
+  .share-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+  }
+
+  .share-btn {
+    padding: 0.65em 0.4em;
+    font-size: 0.72rem;
+    border-radius: 12px;
+    min-height: 58px;
   }
 
   .link-text {
-    font-size: 0.78rem;
-    padding: 0.6em;
+    font-size: 0.7rem;
   }
 
   .result-desc {
     font-size: 0.95rem;
-  }
-
-  .tip {
-    font-size: 0.85rem;
   }
 }
 
